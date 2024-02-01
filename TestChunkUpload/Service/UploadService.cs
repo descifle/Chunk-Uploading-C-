@@ -1,17 +1,9 @@
 using ChunkUpload.Data;
-using ChunkUpload.Model;
-using ChunkUpload.Exception;
-using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace ChunkUpload.Service
 {
     public class UploadService
     {
-
-
         private const int CHUNK_LIMIT = 1024 * 1024;
 
         Dictionary<String, Session> sessions;
@@ -27,18 +19,18 @@ namespace ChunkUpload.Service
         {
 
             if (String.IsNullOrWhiteSpace(fileName))
-                throw new BadRequestException("File name missing");
+                throw new Exception("File name missing");
 
 
 
             if (chunkSize > CHUNK_LIMIT)
-                throw new BadRequestException(String.Format("Maximum chunk size is {0} bytes", CHUNK_LIMIT));
+                throw new Exception(String.Format("Maximum chunk size is {0} bytes", CHUNK_LIMIT));
 
             if (chunkSize < 1)
-                throw new BadRequestException("Chunk size must be greater than zero");
+                throw new Exception("Chunk size must be greater than zero");
 
             if (fileSize < 1)
-                throw new BadRequestException("Total size must be greater than zero");
+                throw new Exception("Total size must be greater than zero");
 
             Session session = new Session(user, new FileInformation(fileSize, fileName, chunkSize));
             sessions.Add(session.Id, session);
@@ -65,7 +57,7 @@ namespace ChunkUpload.Service
             {
                 if (session == null)
                 {
-                    throw new NotFoundException("Session not found");
+                    throw new Exception("Session not found");
                 }
 
                 fileStorage.Persist(sessionId, chunkNumber, buffer);
@@ -82,6 +74,11 @@ namespace ChunkUpload.Service
 
                 throw e;
             }
+        }
+
+        public void UploadFileToServer(Session session)
+        {
+            fileStorage.RecreateFile(session.Id, session.FileInfo);
         }
 
         public void WriteToStream(Stream stream, Session session)

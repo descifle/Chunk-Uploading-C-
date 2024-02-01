@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
-
 namespace ChunkUpload.Data
 {
     public abstract class FileRepository
@@ -22,6 +17,39 @@ namespace ChunkUpload.Data
             }
 
             stream.Flush();
+        }
+
+        public virtual void RecreateFile(string sessionId, FileInformation fileInfo)
+        {
+            var logPath = Path.Combine(Directory.GetCurrentDirectory(), fileInfo.FileName);
+            var logFile = File.Create(logPath);
+
+            using (var sw = new BinaryWriter(logFile))
+            {
+                for (int i = 1; i <= fileInfo.TotalNumberOfChunks; i++)
+                {
+                    sw.Write(Read(sessionId, i));
+                }
+
+                sw.Dispose();
+            }
+            // TODO delete session information completely then delete corresponding files
+            //DeleteChunksAndDirectory(sessionId);
+        }
+
+        public virtual void DeleteChunksAndDirectory(string sessionId)
+        {
+            DirectoryInfo directoryInfo = new DirectoryInfo($"./files_store/{sessionId}");
+
+            var files = directoryInfo.GetFiles();
+
+            // delete all chunks
+            foreach (var file in files)
+            {
+                file.Delete();
+            }
+            // delete session folder
+            directoryInfo.Delete();
         }
 
         public virtual Stream GetFileStream(Session session)

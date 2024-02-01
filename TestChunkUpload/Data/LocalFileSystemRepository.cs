@@ -23,6 +23,5 @@ namespace ChunkUpload.Data
             string targetPath = Path.Combine(ROOT, id, chunkNumber.ToString());
             return File.ReadAllBytes(targetPath);
         }
-
     }
 }

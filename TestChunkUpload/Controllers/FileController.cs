@@ -1,19 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
-using Swashbuckle.AspNetCore.Swagger;
-using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Net;
-using System.IO;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Cors;
 using ChunkUpload.Service;
 using ChunkUpload.Data;
 using ChunkUpload.Model;
-using Swashbuckle.AspNetCore.Annotations;
 
 
 namespace ChunkUpload.Controllers
@@ -41,8 +31,6 @@ namespace ChunkUpload.Controllers
         /// <param name="sessionParams">Session creation params</param>
         [HttpPost("create/{userId}")]
         [Produces("application/json")]
-        [SwaggerResponse(201, Type = typeof(SessionCreationStatusResponse))]
-        [SwaggerResponse(500)]
         public SessionCreationStatusResponse StartSession([FromRoute] long userId,
                          [FromForm] CreateSessionParams sessionParams)
         {
@@ -65,10 +53,6 @@ namespace ChunkUpload.Controllers
         [HttpPut("upload/user/{userId}/session/{sessionId}/")]
         [Produces("application/json")]
         [Consumes("multipart/form-data")]
-        [SwaggerResponse(200, Description = "Block upload successfully")]
-        [SwaggerResponse(202, Description = "Server busy during that particular upload. Try again")]
-        [SwaggerResponse(410, Description = "Session timeout")]
-        [SwaggerResponse(500, Description = "Internal server error")]
         public JsonResult UploadFileChunk([FromRoute, Required] long? userId,
                                         [FromRoute, Required] string sessionId,
                                         [FromQuery, Required] int? chunkNumber,
@@ -99,9 +83,6 @@ namespace ChunkUpload.Controllers
         /// <param name="sessionId">Session ID</param>
         [HttpGet("upload/{sessionId}")]
         [Produces("application/json")]
-        [SwaggerResponse(404, Description = "Session not found")]
-        [SwaggerResponse(500, Description = "Internal server error")]
-        [SwaggerResponse(200)]
         public UploadStatusResponse GetUploadStatus([FromRoute, Required] string sessionId)
         {
             return UploadStatusResponse.fromSession(uploadService.getSession(sessionId));
@@ -113,11 +94,21 @@ namespace ChunkUpload.Controllers
         /// <remarks>gets the status of all uploads</remarks>
         [HttpGet("uploads")]
         [Produces("application/json")]
-        [SwaggerResponse(404, Description = "Session not found")]
-        [SwaggerResponse(200)]
         public List<UploadStatusResponse> GetAllUploadStatus()
         {
             return UploadStatusResponse.fromSessionList(uploadService.getAllSessions());
+        }
+
+        [HttpPost("upload/complete/{sessionId}")]
+        [Produces("application/json")]
+        public void CompleteUpload([FromRoute, Required] string sessionId)
+        {
+            // when the file is finished uploading call this method with sessionID
+            Session session = uploadService.getSession(sessionId);
+            // Step 1 ~ save the file where it is required to be saved.
+            uploadService.UploadFileToServer(session);
+            // Step 2 ~ delete the session files when the save was successful else try a maximum of 3 times
+            // Step 3 ~ Mark as uploaded and continue
         }
 
         /// <summary>
@@ -127,9 +118,6 @@ namespace ChunkUpload.Controllers
         /// <remarks>downloads a previously uploaded file</remarks>
         [HttpGet("download/{sessionId}")]
         [Produces("multipart/form-data")]
-        [SwaggerResponse(200, Description = "OK")]
-        [SwaggerResponse(404, Description = "Session not found")]
-        [SwaggerResponse(500, Description = "Internal server error")]
         public void DownloadFile([FromRoute, Required] string sessionId)
         {
             Session session = uploadService.getSession(sessionId);
@@ -161,7 +149,7 @@ namespace ChunkUpload.Controllers
         Stream targetOutputStream = null;
         // intended for integration tests only
         [ApiExplorerSettings(IgnoreApi=true)]
-        public void SetOuputStream(Stream replacementStream) {
+        public void SetOutputStream(Stream replacementStream) {
             this.targetOutputStream = replacementStream;
         }
 

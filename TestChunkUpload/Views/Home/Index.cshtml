@@ -5,17 +5,9 @@
 }
 
 <div class="frame text-center">
-    <h1>File upload demo</h1>
-    <p>This is a client for uploading chunked files to a Aspnet Core Web API server.</p>
-
-    <p>
-        API documentation:
-        @* change this *@
-        <a href="http://localhost:5000/api-docs/" target="_blank">http://localhost:5000/api-docs</a>
-    </p>
-
+    <h1>Test File upload </h1>
+    <p>This is a client for testing uploading chunked files.</p>
     <hr />
-
     <h3>Upload files</h3>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 
@@ -97,7 +89,7 @@
         function getListFromServer() {
           $('#records_table tbody').empty();
 
-          $.getJSON('/api/file/uploads', function (data) {
+            $.getJSON('@Url.Content("~/api/file/uploads")', function (data) {
               console.log(data)
             data.forEach(function (item) {
               var $tr = $('<tr>').append(
@@ -109,7 +101,7 @@
                 $('<td>').text(item.status),
                 $('<td>').append(
                   item.concluded ? $("<a>")
-                    .attr('href', '/api/file/download/' + item.id)
+                                .attr('href', '@Url.Content("~/api/file/download/")' + item.id)
                     .text('download') : $("<span>"))
               );
 
@@ -121,12 +113,23 @@
           });
         }
 
+        const completeUpload = (sessionId) => {
+            $.post('@Url.Content("~/api/file/upload/complete/")' + sessionId,
+                {},
+                function (data) {
+                    console.log("completed upload successfully");
+                }).fail(function (e) {
+                    console.log(e);
+                    console.log("complete upload failed")
+                });
+        }
+
         var userId = Math.random().toFixed() + 1; //just to ensure the random id is not zero.
 
         var sessionId = null;
 
         var r = new Resumable({
-          target: '/api/file/upload/' + userId,
+            target: '@Url.Content("~/api/file/upload/")' + userId,
           chunkSize: 1 * 1024 * 1024,
           forceChunkSize: true,
           simultaneousUploads: 1,
@@ -162,7 +165,7 @@
 
 
             // Start the upload session then start the upload of chunks
-            $.post('/api/file/create/' + userId,
+              $.post('@Url.Content("~/api/file/create/")' + userId,
               {
                 chunkSize: r.opts.chunkSize,
                 totalSize: file.size,
@@ -171,8 +174,8 @@
               function (data) {
                 sessionId = data.sessionId;
                 r.opts.sessionId = sessionId;
-                // /api/upload/user/{userId}/session/{sessionId}/
-                r.opts.target = '/api/file/upload/user/' + userId + '/session/' + sessionId;
+
+                r.opts.target = '@Url.Content("~/api/file/upload/user/")' + userId + '/session/' + sessionId;
 
                 r.upload();
 
@@ -196,6 +199,9 @@
           r.on('fileSuccess', function (file, message) {
             // Reflect that the file upload has completed
             $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(completed)');
+
+                console.log(sessionId)
+                completeUpload(sessionId);
           });
           r.on('fileError', function (file, message) {
             // Reflect that the file upload has resulted in error

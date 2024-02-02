@@ -9,8 +9,6 @@
     <p>This is a client for testing uploading chunked files.</p>
     <hr />
     <h3>Upload files</h3>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-
     <div class="resumable-error">
         Your browser, unfortunately, is not supported by this application. The library requires support for
         <a href="http://www.w3.org/TR/FileAPI/">the HTML5 File API</a> along with
@@ -74,153 +72,150 @@
             </tbody>
         </table>
     </div>
-
     <p>
         <a href="#" onclick="getListFromServer()">Refresh</a>
     </p>
 
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="~/js/resumable.js"></script>
     <script>
-        var host = "@host";
+        const host = "@host";
 
-        $(document).ready(getListFromServer);
-
-        function getListFromServer() {
-          $('#records_table tbody').empty();
+        const getListFromServer = () => {
+            $('#records_table tbody').empty();
 
             $.getJSON('@Url.Content("~/api/file/uploads")', function (data) {
-              console.log(data)
-            data.forEach(function (item) {
-              var $tr = $('<tr>').append(
-                $('<td>').text(item.user),
-                $('<td>').text(item.fileName),
-                $('<td>').text(item.createdDate),
-                $('<td>').text(item.lastUpdate),
-                $('<td>').text((item.progress * 100).toFixed(2) + "%"),
-                $('<td>').text(item.status),
-                $('<td>').append(
-                  item.concluded ? $("<a>")
+                console.log(data)
+                data.forEach((item) => {
+                    let $tr = $('<tr>').append(
+                        $('<td>').text(item.user),
+                        $('<td>').text(item.fileName),
+                        $('<td>').text(item.createdDate),
+                        $('<td>').text(item.lastUpdate),
+                        $('<td>').text((item.progress * 100).toFixed(2) + "%"),
+                        $('<td>').text(item.status),
+                        $('<td>').append(
+                            item.concluded ? $("<a>")
                                 .attr('href', '@Url.Content("~/api/file/download/")' + item.id)
-                    .text('download') : $("<span>"))
-              );
+                                .text('download') : $("<span>"))
+                    );
 
-              $tr.appendTo('#records_table tbody')
+                    $tr.appendTo('#records_table tbody')
+                });
+            }).fail((e) => {
+                console.log(e);
+                console.log("Error trying to fetch data from server");
             });
-          }).fail(function (e) {
-            console.log(e);
-            console.log("Error trying to fetch data from server");
-          });
         }
+
+        $(document).ready(getListFromServer);
 
         const completeUpload = (sessionId) => {
             $.post('@Url.Content("~/api/file/upload/complete/")' + sessionId,
                 {},
-                function (data) {
+                (data) => {
                     console.log("completed upload successfully");
-                }).fail(function (e) {
+                }).fail((e) => {
                     console.log(e);
                     console.log("complete upload failed")
                 });
         }
 
-        var userId = Math.random().toFixed() + 1; //just to ensure the random id is not zero.
+        const userId = Math.random().toFixed() + 1; //just to ensure the random id is not zero.
 
-        var sessionId = null;
+        let sessionId = null;
 
-        var r = new Resumable({
+        let r = new Resumable({
             target: '@Url.Content("~/api/file/upload/")' + userId,
-          chunkSize: 1 * 1024 * 1024,
-          forceChunkSize: true,
-          simultaneousUploads: 1,
-          uploadMethod: 'PUT',
-          testChunks: false,
-          throttleProgressCallbacks: 1,
-          fileParameterName: 'file',
-          chunkNumberParameterName: 'chunkNumber',
-          chunkSizeParameterName: 'chunkSize',
-          currentChunkSizeParameterName: 'chunkSize',
-          fileNameParameterName: 'fileName',
-          totalSizeParameterName: 'totalSize'
+            chunkSize: 1 * 1024 * 1024,
+            forceChunkSize: true,
+            simultaneousUploads: 1,
+            uploadMethod: 'PUT',
+            testChunks: false,
+            throttleProgressCallbacks: 1,
+            fileParameterName: 'file',
+            chunkNumberParameterName: 'chunkNumber',
+            chunkSizeParameterName: 'chunkSize',
+            currentChunkSizeParameterName: 'chunkSize',
+            fileNameParameterName: 'fileName',
+            totalSizeParameterName: 'totalSize'
         });
         // Resumable.js isn't supported, fall back on a different method
         if (!r.support) {
-          $('.resumable-error').show();
+            $('.resumable-error').show();
         } else {
-          // Show a place for dropping/selecting files
-          $('.resumable-drop').show();
-          r.assignDrop($('.resumable-drop')[0]);
-          r.assignBrowse($('.resumable-browse')[0]);
+            // Show a place for dropping/selecting files
+            $('.resumable-drop').show();
+            r.assignDrop($('.resumable-drop')[0]);
+            r.assignBrowse($('.resumable-browse')[0]);
 
-          // Handle file add event
-          r.on('fileAdded', function (file) {
-            // Show progress pabr
-            $('.resumable-progress, .resumable-list').show();
-            // Show pause, hide resume
-            $('.resumable-progress .progress-resume-link').hide();
-            $('.resumable-progress .progress-pause-link').show();
-            // Add the file to the list
-            $('.resumable-list').append('<li class="resumable-file-' + file.uniqueIdentifier + '">Uploading <span class="resumable-file-name"></span> <span class="resumable-file-progress"></span>');
-            $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-name').html(file.fileName);
-
-
-            // Start the upload session then start the upload of chunks
-              $.post('@Url.Content("~/api/file/create/")' + userId,
-              {
-                chunkSize: r.opts.chunkSize,
-                totalSize: file.size,
-                fileName: file.fileName,
-              },
-              function (data) {
-                sessionId = data.sessionId;
-                r.opts.sessionId = sessionId;
-
-                r.opts.target = '@Url.Content("~/api/file/upload/user/")' + userId + '/session/' + sessionId;
-
-                r.upload();
-
-              }).fail(function (e) {
-                console.log(e);
-                $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(file could not be uploaded: ' + e + ')');
-              });
+            // Handle file add event
+            r.on('fileAdded', (file) => {
+                // Show progress pabr
+                $('.resumable-progress, .resumable-list').show();
+                // Show pause, hide resume
+                $('.resumable-progress .progress-resume-link').hide();
+                $('.resumable-progress .progress-pause-link').show();
+                // Add the file to the list
+                $('.resumable-list').append('<li class="resumable-file-' + file.uniqueIdentifier + '">Uploading <span class="resumable-file-name"></span> <span class="resumable-file-progress"></span>');
+                $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-name').html(file.fileName);
 
 
-          });
-          r.on('pause', function () {
-            // Show resume, hide pause
-            $('.resumable-progress .progress-resume-link').show();
-            $('.resumable-progress .progress-pause-link').hide();
-          });
-          r.on('complete', function () {
-            // Hide pause/resume when the upload has completed
-            $('.resumable-progress .progress-resume-link, .resumable-progress .progress-pause-link').hide();
-            getListFromServer();
-          });
-          r.on('fileSuccess', function (file, message) {
-            // Reflect that the file upload has completed
-            $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(completed)');
+                // Start the upload session then start the upload of chunks
+                $.post('@Url.Content("~/api/file/create/")' + userId,
+                    {
+                        chunkSize: r.opts.chunkSize,
+                        totalSize: file.size,
+                        fileName: file.fileName,
+                    },
+                    (data) => {
+                        sessionId = data.sessionId;
+                        r.opts.sessionId = sessionId;
+
+                        r.opts.target = '@Url.Content("~/api/file/upload/user/")' + userId + '/session/' + sessionId;
+
+                        r.upload();
+
+                    }).fail((e) => {
+                        console.log(e);
+                        $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(file could not be uploaded: ' + e + ')');
+                    });
+
+
+            });
+            r.on('pause', () => {
+                // Show resume, hide pause
+                $('.resumable-progress .progress-resume-link').show();
+                $('.resumable-progress .progress-pause-link').hide();
+            });
+            r.on('complete', () => {
+                // Hide pause/resume when the upload has completed
+                $('.resumable-progress .progress-resume-link, .resumable-progress .progress-pause-link').hide();
+                getListFromServer();
+            });
+            r.on('fileSuccess', (file, message) => {
+                // Reflect that the file upload has completed
+                $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(completed)');
 
                 console.log(sessionId)
                 completeUpload(sessionId);
-          });
-          r.on('fileError', function (file, message) {
-            // Reflect that the file upload has resulted in error
-            $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(file could not be uploaded: ' + message + ')');
-          });
-          r.on('fileProgress', function (file) {
-            // Handle progress for both the file and the overall upload
-            $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html(Math.floor(file.progress() * 100) + '%');
-            $('.progress-bar').css({ width: Math.floor(r.progress() * 100) + '%' });
-          });
-          r.on('cancel', function () {
-            $('.resumable-file-progress').html('canceled');
-          });
-          r.on('uploadStart', function () {
-            // Show pause, hide resume
-            $('.resumable-progress .progress-resume-link').hide();
-            $('.resumable-progress .progress-pause-link').show();
-            getListFromServer();
-          });
+            });
+            r.on('fileError', (file, message) => {
+                // Reflect that the file upload has resulted in error
+                $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html('(file could not be uploaded: ' + message + ')');
+            });
+            r.on('fileProgress', (file) => {
+                // Handle progress for both the file and the overall upload
+                $('.resumable-file-' + file.uniqueIdentifier + ' .resumable-file-progress').html(Math.floor(file.progress() * 100) + '%');
+                $('.progress-bar').css({ width: Math.floor(r.progress() * 100) + '%' });
+            });
+            r.on('cancel', () => {
+                $('.resumable-file-progress').html('canceled');
+            });
+            r.on('uploadStart', () => {
+                // Show pause, hide resume
+                $('.resumable-progress .progress-resume-link').hide();
+                $('.resumable-progress .progress-pause-link').show();
+                getListFromServer();
+            });
         }
     </script>
 </div>
